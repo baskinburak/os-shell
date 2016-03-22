@@ -185,7 +185,16 @@ bool pipes_connected() {
 }
 
 void run_procs() {
-	
+	for(int i=0;i<_procs.size();i++) {
+		if(fork() == 0) {
+			PROC& ref = _procs[i];
+			if(ref.inp_pipe != -1) {
+				for(unorder_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
+				}
+			}
+		} else {
+		}
+	}
 }
 
 int main() {
