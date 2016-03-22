@@ -5,20 +5,24 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 using namespace std;
+
+enum parse_state {ARG, INP_PIPE, OUTP_PIPE};
+
 class PROC {
 	public:
 		string path;
 		vector<string> args;
-		int in_pipe;
-		vector<int> out_pipes;
+		int inp_pipe;
+		vector<int> outp_pipes;
 		PROC() {}
-		PROC(string p, vector<string> a, int i, vector<int> o):path(p),args(a),in_pipe(i),out_pipes(o) {
-
-		}
-		void run_proc() {
-			
+		PROC(string p, vector<string> a, int i, vector<int> o) {
+			path = p;
+			args = a;
+			inp_pipe = i;
+			outp_pipes = o;
 		}
 };
 
@@ -74,13 +78,25 @@ string trim(string inp) {
 	return res;
 }
 
+string after_last_slash(string inp) {
+	string res;
+	for(int i=inp.size()-1;i>=0;i--) {
+		if(inp[i] == '/') break;
+		res.push_back(inp[i]);
+	}
+	reverse(res.begin(),res.end());
+	return res;
+}
+
 PROC parse_proc(string line) {
 	stringstream inp(line);
 
 	string path;
 	string back_path;
 	string token;
-
+	vector<string> args;
+	int inp_pipe = -1;
+	vector<int> outp_pipes;
 
 	inp >> path;
 	back_path = path;
@@ -89,16 +105,51 @@ PROC parse_proc(string line) {
 		path = _path_env[i] + back_path;
 	}
 
-	cout << path << endl;
-	int st = 0; //0: arg read, 1: <| inp , 2: >| out
-	while((inp>>token)) {
-		cout << token << endl;
-	}
-	
-	return PROC();
-	
-}
+	args.push_back(after_last_slash(path));
 
+	parse_state st = ARG; //0: arg read, 1: <| inp , 2: >| out
+	while((inp >> token)) {
+		if(st == ARG) {
+			if(token == ">|") {
+				st = OUTP_PIPE;
+			} else if(token == "<|") {
+				st = INP_PIPE;
+			} else {
+				args.push_back(token);
+			}
+		} else if(st == INP_PIPE) {
+			if(token==">|") {
+				st = OUTP_PIPE;
+			} else {
+				inp_pipe = atoi(token.c_str());
+			}
+		} else if(st == OUTP_PIPE) {
+			if(token=="<|") {
+				st = INP_PIPE;
+			} else {
+				outp_pipes.push_back(atoi(token.c_str()));
+			}
+		}
+	}
+	return PROC(path, args, inp_pipe, outp_pipes);
+}
+void debug_print_procs() {
+	for(int i=0; i<_procs.size(); i++) {
+		PROC& ref = _procs[i];
+		cout << "Path: " << ref.path << endl;
+		cout << "Args: ";
+		for(int j=0;j<ref.args.size();j++) {
+			cout << ref.args[j] << " ";
+		}
+		cout << endl;
+		cout << "Input pipe: " << ref.inp_pipe << endl;
+		cout << "Output pipes: ";
+		for(int j=0;j<ref.outp_pipes.size();j++) {
+			cout << ref.outp_pipes[j] << " ";
+		}
+		cout << endl << endl;
+	}
+}
 int main() {
 	_path_env = get_path_vec(getenv("PATH"));
 	string line;
@@ -112,6 +163,16 @@ int main() {
 			continue;
 		}
 		PROC new_proc = parse_proc(line);
+		_procs.push_back(new_proc);
+		bool pipe_added = false;
+		if(new_proc.inp_pipe != -1) {
+			int pipe_id = new_proc.inp_pipe;
+			if(_pipes.find(pipe_id) != _pipes.end()) {
+				pipe_added = true;
+				int fd[2];
+				pipe(fd);
+			}
+		}
 	}
 	return 0;
 }
