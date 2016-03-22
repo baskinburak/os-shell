@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <cstring>
 
 using namespace std;
 
@@ -163,6 +164,7 @@ void add_new_pipes(PROC& ref) {
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
 		}
+		cout << "inp: " << pipe_id << endl;
 		_pipes[pipe_id].been_inp = true;
 	}
 
@@ -173,19 +175,28 @@ void add_new_pipes(PROC& ref) {
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
 		}
+		cout << "out: " << pipe_id << endl;
 		_pipes[pipe_id].been_outp = true;
 	}
 }
 bool pipes_connected() {
 	bool ret = true;
-	for(int i=0; i<_pipes.size(); i++) {
-		ret = ret && _pipes[i].been_inp && _pipes[i].been_outp;
+	for(unordered_map<int,PIPE>::iterator it = _pipes.begin(); it != _pipes.end(); it++) {
+		ret = ret && (it->second).been_inp && (it->second).been_outp;
 	}
 	return ret;
 }
 
 void EXEC(PROC& ref) {
-	
+	char** args = (char**) malloc(sizeof(char*)*(ref.args.size()+1));
+	args[ref.args.size()] = NULL;
+	for(int i=0;i<ref.args.size();i++) {
+		args[i] = (char*)malloc(sizeof(char)*(ref.args[i].size()+1));
+		strcpy(args[i],ref.args[i].c_str());
+	}
+	char* path = (char*)malloc(sizeof(char)*(ref.path.size()+1));
+	strcpy(path, ref.path.c_str());
+	execve(path, args, NULL);
 }
 
 void run_procs() {
@@ -193,6 +204,7 @@ void run_procs() {
 		if(fork() == 0) {
 			//child process.this will turn into a new process.
 			PROC& ref = _procs[i];
+
 			//close unneeded input pipes
 			for(unordered_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
 				if(it->first != ref.inp_pipe) {
@@ -206,6 +218,7 @@ void run_procs() {
 
 			if(ref.inp_pipe != -1) {
 				dup2(_pipes[ref.inp_pipe].read_desc,0);
+				close(_pipes[ref.inp_pipe].read_desc);
 			}
 
 			if(ref.outp_pipes.size() > 1) {
@@ -215,8 +228,6 @@ void run_procs() {
 				if(fork() == 0) {
 					//make this repeater
 					close(repeater_pipe[1]);
-					close(0);
-					close(1);
 					char buf[512];
 					while(read(repeater_pipe[0], buf, 511)>0) {
 						for(int j=0; j < ref.outp_pipes.size(); j++) {
@@ -228,18 +239,24 @@ void run_procs() {
 					//make this execve
 					close(repeater_pipe[0]);
 					dup2(repeater_pipe[1],1);
+					close(repeater_pipe[1]);
 					EXEC(ref);
 				}
 			} else if(ref.outp_pipes.size() == 1) {
 				dup2(_pipes[ref.outp_pipes[0]].write_desc, 1);
+				close(_pipes[ref.outp_pipes[0]].write_desc);
 				EXEC(ref);
 			}
 			EXEC(ref);
+		} else {
+			
 		}
 	}
-
+	for(unordered_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
+		close((it->second).read_desc);
+		close((it->second).write_desc);
+	}
 	while(waitpid(-1, NULL, 0)) {
-		cout <<"here" << endl;
 		if(errno == ECHILD) {
 			break;
 		}
