@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdlib>
 #include <fstream>
+#include <sstream>
 
 using namespace std;
 class PROC {
@@ -12,6 +13,7 @@ class PROC {
 		vector<string> args;
 		int in_pipe;
 		vector<int> out_pipes;
+		PROC() {}
 		PROC(string p, vector<string> a, int i, vector<int> o):path(p),args(a),in_pipe(i),out_pipes(o) {
 
 		}
@@ -29,6 +31,12 @@ class PIPE {
 
 unordered_map<int,PIPE> _pipes;
 vector<PROC> _procs;
+vector<string> _path_env;
+
+
+void EXIT() {
+	exit(0);	
+}
 
 bool file_exists(string path) {
 	ifstream file(path);
@@ -50,18 +58,60 @@ vector<string> get_path_vec(char* env) {
 		}
 		cur.push_back(ENV[i]);
 	}
+	cur.push_back('/');
 	vars.push_back(cur);
 	return vars;
 }
 
-int main() {
-	vector<string> path_env = get_path_vec(getenv("PATH"));
+string trim(string inp) {
+	string res;
+	int i,j;
+	for(i=0; i<inp.size() && iswspace(inp[i]); i++); 
+	for(j=inp.size()-1; j>=0 && iswspace(inp[j]); j--);
+	for(int k=i;k<=j;k++) {
+		res.push_back(inp[k]);
+	}
+	return res;
+}
 
+PROC parse_proc(string line) {
+	stringstream inp(line);
+
+	string path;
+	string back_path;
+	string token;
+
+
+	inp >> path;
+	back_path = path;
+
+	for(int i=0;i<_path_env.size() && !file_exists(path);i++) {
+		path = _path_env[i] + back_path;
+	}
+
+	cout << path << endl;
+	int st = 0; //0: arg read, 1: <| inp , 2: >| out
+	while((inp>>token)) {
+		cout << token << endl;
+	}
+	
+	return PROC();
+	
+}
+
+int main() {
+	_path_env = get_path_vec(getenv("PATH"));
+	string line;
 	while(1) {
 		cout << ">";
-		PROC new_proc;
-		int a;
-		cin >> a;
+		getline(cin,line);
+		line = trim(line);
+		if(line=="quit") {
+			EXIT();
+		} else if(line=="") {
+			continue;
+		}
+		PROC new_proc = parse_proc(line);
 	}
 	return 0;
 }
