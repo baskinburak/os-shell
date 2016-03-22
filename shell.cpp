@@ -18,11 +18,7 @@ class PROC {
 		int inp_pipe;
 		vector<int> outp_pipes;
 		PROC() {}
-		PROC(string p, vector<string> a, int i, vector<int> o) {
-			path = p;
-			args = a;
-			inp_pipe = i;
-			outp_pipes = o;
+		PROC(string p, vector<string> a, int i, vector<int> o):path(p), args(a), inp_pipe(i), outp_pipe(o) {
 		}
 };
 
@@ -31,6 +27,9 @@ class PIPE {
 		int id;
 		int read_desc;
 		int write_desc;
+		bool been_inp;
+		bool been_outp;
+		PIPE(int i, int r, int w):id(i), read_desc(r), write_desc(w), been_inp(false), been_outp(false) {}
 };
 
 unordered_map<int,PIPE> _pipes;
@@ -150,6 +149,45 @@ void debug_print_procs() {
 		cout << endl << endl;
 	}
 }
+
+bool add_new_pipes(PROC& ref) {
+	bool pipe_added = false;
+	if(ref.inp_pipe != -1) {
+		int pipe_id = ref.inp_pipe;
+		if(_pipes.find(pipe_id) == _pipes.end()) {
+			pipe_added = true;
+			int fd[2];
+			pipe(fd);
+			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
+		}
+		_pipes[pipe_id].been_inp = true;
+	}
+
+	for(int i=0; i<ref.outp_pipes.size(); i++) {
+		int pipe_id = ref.outp_pipes[i];
+		if(_pipes.find(pipe_id) == _pipes.end()) {
+			pipe_added = true;
+			int fd[2];
+			pipe(fd);
+			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
+		}
+		_pipes[pipe_id].been_outp = true;
+	}
+
+	return pipe_added;
+}
+bool pipes_connected() {
+	bool ret = true;
+	for(int i=0; i<_pipes.size(); i++) {
+		ret = ret && _pipes[i].been_inp && _pipes[i].been_outp;
+	}
+	return ret;
+}
+
+void run_procs() {
+	
+}
+
 int main() {
 	_path_env = get_path_vec(getenv("PATH"));
 	string line;
@@ -164,14 +202,8 @@ int main() {
 		}
 		PROC new_proc = parse_proc(line);
 		_procs.push_back(new_proc);
-		bool pipe_added = false;
-		if(new_proc.inp_pipe != -1) {
-			int pipe_id = new_proc.inp_pipe;
-			if(_pipes.find(pipe_id) != _pipes.end()) {
-				pipe_added = true;
-				int fd[2];
-				pipe(fd);
-			}
+		if(add_new_pipes(new_proc) && pipes_connected()) {
+			run_procs();
 		}
 	}
 	return 0;
