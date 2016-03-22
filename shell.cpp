@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <unistd.h>
 
 using namespace std;
 
@@ -18,7 +19,7 @@ class PROC {
 		int inp_pipe;
 		vector<int> outp_pipes;
 		PROC() {}
-		PROC(string p, vector<string> a, int i, vector<int> o):path(p), args(a), inp_pipe(i), outp_pipe(o) {
+		PROC(string p, vector<string> a, int i, vector<int> o):path(p), args(a), inp_pipe(i), outp_pipes(o) {
 		}
 };
 
@@ -30,6 +31,7 @@ class PIPE {
 		bool been_inp;
 		bool been_outp;
 		PIPE(int i, int r, int w):id(i), read_desc(r), write_desc(w), been_inp(false), been_outp(false) {}
+		PIPE() {}
 };
 
 unordered_map<int,PIPE> _pipes;
@@ -188,10 +190,28 @@ void run_procs() {
 	for(int i=0;i<_procs.size();i++) {
 		if(fork() == 0) {
 			PROC& ref = _procs[i];
-			if(ref.inp_pipe != -1) {
-				for(unorder_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
+			//close unneeded input pipes
+			for(unordered_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
+				if(it->first != ref.inp_pipe) {
+					close((it->second).read_desc);
+				}
+
+				if(find(ref.outp_pipes.begin(), ref.outp_pipes.end(), it->first) == ref.outp_pipes.end()) {
+					close((it->second).write_desc);
 				}
 			}
+
+
+			if(ref.outp_pipes.size() > 1) {
+				//repeater case
+			} else if(ref.outp_pipes.size() == 1) {
+
+			}
+
+			if(ref.inp_pipe != -1) {
+
+			}
+
 		} else {
 		}
 	}
