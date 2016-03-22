@@ -7,6 +7,9 @@
 #include <sstream>
 #include <algorithm>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -152,12 +155,10 @@ void debug_print_procs() {
 	}
 }
 
-bool add_new_pipes(PROC& ref) {
-	bool pipe_added = false;
+void add_new_pipes(PROC& ref) {
 	if(ref.inp_pipe != -1) {
 		int pipe_id = ref.inp_pipe;
 		if(_pipes.find(pipe_id) == _pipes.end()) {
-			pipe_added = true;
 			int fd[2];
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
@@ -168,15 +169,12 @@ bool add_new_pipes(PROC& ref) {
 	for(int i=0; i<ref.outp_pipes.size(); i++) {
 		int pipe_id = ref.outp_pipes[i];
 		if(_pipes.find(pipe_id) == _pipes.end()) {
-			pipe_added = true;
 			int fd[2];
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
 		}
 		_pipes[pipe_id].been_outp = true;
 	}
-
-	return pipe_added;
 }
 bool pipes_connected() {
 	bool ret = true;
@@ -184,6 +182,10 @@ bool pipes_connected() {
 		ret = ret && _pipes[i].been_inp && _pipes[i].been_outp;
 	}
 	return ret;
+}
+
+void EXEC(PROC& ref) {
+	
 }
 
 void run_procs() {
@@ -216,22 +218,34 @@ void run_procs() {
 					close(0);
 					close(1);
 					char buf[512];
-					while(read(repater_pipe[0], buf, 512)>0) {
+					while(read(repeater_pipe[0], buf, 511)>0) {
 						for(int j=0; j < ref.outp_pipes.size(); j++) {
+							write(_pipes[ref.outp_pipes[j]].write_desc, buf, 511);
 						}
 					}
+					EXIT();
 				} else {
 					//make this execve
 					close(repeater_pipe[0]);
 					dup2(repeater_pipe[1],1);
+					EXEC(ref);
 				}
 			} else if(ref.outp_pipes.size() == 1) {
 				dup2(_pipes[ref.outp_pipes[0]].write_desc, 1);
+				EXEC(ref);
 			}
-
-		} else {
+			EXEC(ref);
 		}
 	}
+
+	while(waitpid(-1, NULL, 0)) {
+		cout <<"here" << endl;
+		if(errno == ECHILD) {
+			break;
+		}
+	}
+	_procs.clear();
+	_pipes.clear();
 }
 
 int main() {
@@ -248,7 +262,8 @@ int main() {
 		}
 		PROC new_proc = parse_proc(line);
 		_procs.push_back(new_proc);
-		if(add_new_pipes(new_proc) && pipes_connected()) {
+		add_new_pipes(new_proc);
+		if(pipes_connected()) {
 			run_procs();
 		}
 	}
