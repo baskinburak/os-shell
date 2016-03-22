@@ -164,7 +164,6 @@ void add_new_pipes(PROC& ref) {
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
 		}
-		cout << "inp: " << pipe_id << endl;
 		_pipes[pipe_id].been_inp = true;
 	}
 
@@ -175,7 +174,6 @@ void add_new_pipes(PROC& ref) {
 			pipe(fd);
 			_pipes[pipe_id] = PIPE(pipe_id, fd[0], fd[1]);
 		}
-		cout << "out: " << pipe_id << endl;
 		_pipes[pipe_id].been_outp = true;
 	}
 }
@@ -229,10 +227,14 @@ void run_procs() {
 					//make this repeater
 					close(repeater_pipe[1]);
 					char buf[512];
-					while(read(repeater_pipe[0], buf, 511)>0) {
+					int read_count;
+					while((read_count = read(repeater_pipe[0], buf, 512)) > 0) {
 						for(int j=0; j < ref.outp_pipes.size(); j++) {
-							write(_pipes[ref.outp_pipes[j]].write_desc, buf, 511);
+							write(_pipes[ref.outp_pipes[j]].write_desc, buf, read_count);
 						}
+					}
+					for(int j=0; j < ref.outp_pipes.size(); j++) {
+						close(_pipes[ref.outp_pipes[j]].write_desc);
 					}
 					EXIT();
 				} else {
@@ -240,16 +242,12 @@ void run_procs() {
 					close(repeater_pipe[0]);
 					dup2(repeater_pipe[1],1);
 					close(repeater_pipe[1]);
-					EXEC(ref);
 				}
 			} else if(ref.outp_pipes.size() == 1) {
 				dup2(_pipes[ref.outp_pipes[0]].write_desc, 1);
 				close(_pipes[ref.outp_pipes[0]].write_desc);
-				EXEC(ref);
 			}
 			EXEC(ref);
-		} else {
-			
 		}
 	}
 	for(unordered_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
