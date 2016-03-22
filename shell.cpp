@@ -189,6 +189,7 @@ bool pipes_connected() {
 void run_procs() {
 	for(int i=0;i<_procs.size();i++) {
 		if(fork() == 0) {
+			//child process.this will turn into a new process.
 			PROC& ref = _procs[i];
 			//close unneeded input pipes
 			for(unordered_map<int,PIPE>::iterator it=_pipes.begin(); it != _pipes.end(); it++) {
@@ -201,15 +202,31 @@ void run_procs() {
 				}
 			}
 
+			if(ref.inp_pipe != -1) {
+				dup2(_pipes[ref.inp_pipe].read_desc,0);
+			}
 
 			if(ref.outp_pipes.size() > 1) {
 				//repeater case
+				int repeater_pipe[2];
+				pipe(repeater_pipe);
+				if(fork() == 0) {
+					//make this repeater
+					close(repeater_pipe[1]);
+					close(0);
+					close(1);
+					char buf[512];
+					while(read(repater_pipe[0], buf, 512)>0) {
+						for(int j=0; j < ref.outp_pipes.size(); j++) {
+						}
+					}
+				} else {
+					//make this execve
+					close(repeater_pipe[0]);
+					dup2(repeater_pipe[1],1);
+				}
 			} else if(ref.outp_pipes.size() == 1) {
-
-			}
-
-			if(ref.inp_pipe != -1) {
-
+				dup2(_pipes[ref.outp_pipes[0]].write_desc, 1);
 			}
 
 		} else {
