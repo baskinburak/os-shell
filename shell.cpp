@@ -267,7 +267,6 @@ int main() {
 	_path_env = get_path_vec(getenv("PATH"));
 	string line;
 	while(1) {
-		cout << ">";
 		getline(cin,line);
 		line = trim(line);
 		if(line=="quit") {
