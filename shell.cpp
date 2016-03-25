@@ -194,7 +194,7 @@ void EXEC(PROC& ref) {
 	}
 	char* path = (char*)malloc(sizeof(char)*(ref.path.size()+1));
 	strcpy(path, ref.path.c_str());
-	execve(path, args, NULL);
+	execv(path, args);
 }
 
 void run_procs() {
