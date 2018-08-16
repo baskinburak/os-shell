@@ -44,7 +44,7 @@ vector<string> _path_env;
 
 
 void EXIT() {
-	exit(0);	
+	exit(0);
 }
 
 bool file_exists(string path) {
@@ -75,7 +75,7 @@ vector<string> get_path_vec(char* env) {
 string trim(string inp) {
 	string res;
 	int i,j;
-	for(i=0; i<inp.size() && iswspace(inp[i]); i++); 
+	for(i=0; i<inp.size() && iswspace(inp[i]); i++);
 	for(j=inp.size()-1; j>=0 && iswspace(inp[j]); j--);
 	for(int k=i;k<=j;k++) {
 		res.push_back(inp[k]);
